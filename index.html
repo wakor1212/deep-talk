@@ -1,83 +1,180 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Deep Talk Cards</title>
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      background-color: #000;
-      color: #fff;
-      font-family: Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-      text-align: center;
-    }
-
-    h1 {
-      font-size: 2rem;
-      margin-bottom: 20px;
-    }
-
-    button {
-      padding: 10px 20px;
-      font-size: 1.1rem;
-      border: none;
-      border-radius: 8px;
-      background-color: #ffffff10;
-      color: #fff;
-      cursor: pointer;
-      backdrop-filter: blur(5px);
-      box-shadow: 0 0 10px #ffffff33;
-      transition: all 0.2s ease;
-    }
-
-    button:hover {
-      background-color: #ffffff22;
-    }
-
-    #card {
-      margin-top: 30px;
-      font-size: 1.3rem;
-      max-width: 90%;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Deep Talk Cards</title>
+<style>
+  body {
+    background: #000;
+    color: #eee;
+    font-family: Arial, sans-serif;
+    display: flex;
+    height: 100vh;
+    justify-content: center;
+    align-items: center;
+    margin: 0;
+    padding: 20px;
+    flex-direction: column;
+    text-align: center;
+  }
+  #category {
+    font-size: 24px;
+    margin-bottom: 10px;
+  }
+  #question {
+    font-size: 20px;
+    margin-bottom: 20px;
+    min-height: 80px;
+  }
+  button {
+    background: #222;
+    color: #eee;
+    border: 1px solid #555;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 6px;
+    margin: 5px;
+    user-select: none;
+  }
+  button:hover {
+    background: #444;
+  }
+</style>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
-  <h1>🃏 Deep Talk Generator</h1>
-  <button onclick="newCard()">New Question</button>
-  <p id="card"></p>
 
-  <script>
-    const questions = [
-      "What part of yourself are you most proud of?",
-      "When was the last time you felt truly seen?",
-      "What’s something you’re still healing from?",
-      "If fear didn’t stop you, what would you try?",
-      "What kind of future are you scared of?",
-      "Do you feel closer to your friends or your dreams?",
-      "What memory still makes your heart ache?",
-      "Who do you miss being?"
-    ];
-    let used = new Set();
+<div id="category"></div>
+<div id="question">Loading questions...</div>
+<button id="newCardBtn">🎲 New Question</button>
+<button id="shareBtn" style="display:none;">🔗 Share this question</button>
 
-    function newCard() {
-      if (used.size === questions.length) {
-        document.getElementById("card").innerText = "No more cards!";
+<script>
+  // --- Firebase config (เปลี่ยนเป็นของมึง) ---
+const firebaseConfig = {
+  apiKey: "AIzaSyB6JnclgIZfdSkhyCK-_sKKE6NR3auuVbs",
+  authDomain: "deeptalkapp-ab162.firebaseapp.com",
+  projectId: "deeptalkapp-ab162",
+  storageBucket: "deeptalkapp-ab162.firebasestorage.app",
+  messagingSenderId: "17784725064",
+  appId: "1:17784725064:web:a4432c0adfe939b06d427d"
+};
+
+  // Initialize Firebase
+  firebase.initializeApp(firebaseConfig);
+  const database = firebase.database();
+
+  // --- คำถามพร้อมหมวดหมู่และ Emoji ---
+  const questions = [
+    {text: "What part of yourself are you most proud of?","category":"Yourself","emoji":"🧍"},
+    {text: "What scares you the most about your future?","category":"Future","emoji":"🔮"},
+    {text: "Have you ever felt betrayed by a friend? How did it affect you?","category":"Friend","emoji":"🤝"},
+    {text: "If you could change one thing about your past, what would it be?","category":"Yourself","emoji":"🧍"},
+    {text: "What’s a dream you have that you’ve never shared with anyone?","category":"Future","emoji":"🔮"},
+    {text: "How do you know when someone is truly your friend?","category":"Friend","emoji":"🤝"},
+    {text: "When do you feel most vulnerable?","category":"Yourself","emoji":"🧍"},
+    {text: "What do you hope your friends remember about you?","category":"Friend","emoji":"🤝"},
+    {text: "What’s one thing you want to accomplish in the next 5 years?","category":"Future","emoji":"🔮"},
+    {text: "How do you handle feelings of loneliness?","category":"Yourself","emoji":"🧍"},
+    {text: "What does friendship mean to you?","category":"Friend","emoji":"🤝"},
+    {text: "What are you most excited about in your future?","category":"Future","emoji":"🔮"},
+  ];
+
+  let used = new Set();
+  let currentQuestion = null;
+
+  // ฟังก์ชันอ่านคำถามที่ใช้แล้วจาก Firebase
+  async function getUsedQuestions() {
+    const snapshot = await database.ref('usedQuestions').once('value');
+    return snapshot.val() || {};
+  }
+
+  // ฟังก์ชันบันทึกคำถามที่ใช้ไปแล้วลง Firebase
+  function markQuestionUsed(questionText) {
+    const safeKey = questionText.replace(/\./g, '_');
+    database.ref('usedQuestions/' + safeKey).set(true);
+  }
+
+  // ฟังก์ชันสุ่มคำถามที่ยังไม่ถูกใช้
+  async function newCard() {
+    const usedData = await getUsedQuestions();
+    used = new Set(Object.keys(usedData));
+
+    const unusedQuestions = questions.filter(q => !used.has(q.text.replace(/\./g, '_')));
+    if (unusedQuestions.length === 0) {
+      document.getElementById("category").innerText = "";
+      document.getElementById("question").innerText = "No more questions!";
+      document.getElementById("shareBtn").style.display = 'none';
+      return;
+    }
+    const q = unusedQuestions[Math.floor(Math.random() * unusedQuestions.length)];
+    currentQuestion = q;
+
+    document.getElementById("category").innerText = `${q.emoji} ${q.category}`;
+    document.getElementById("question").innerText = q.text;
+
+    // บันทึกคำถามที่ใช้ใน Firebase
+    markQuestionUsed(q.text);
+    used.add(q.text.replace(/\./g, '_'));
+
+    // แก้ไข URL เพื่อแชร์คำถามนี้
+    const encoded = encodeURIComponent(q.text);
+    history.replaceState(null, '', '?q=' + encoded);
+
+    // แสดงปุ่มแชร์
+    document.getElementById("shareBtn").style.display = 'inline-block';
+  }
+
+  // ฟังก์ชันแชร์คำถาม
+  document.getElementById("shareBtn").onclick = () => {
+    const url = window.location.href;
+    if (navigator.share) {
+      navigator.share({
+        title: 'Deep Talk Question',
+        text: currentQuestion ? currentQuestion.text : '',
+        url: url,
+      }).catch(() => alert('Sharing failed or canceled.'));
+    } else {
+      navigator.clipboard.writeText(url).then(() => {
+        alert('Link copied to clipboard!');
+      });
+    }
+  };
+
+  // ถ้าเปิดด้วย URL ที่มี ?q= ให้โชว์คำถามนั้น
+  window.onload = async () => {
+    const params = new URLSearchParams(window.location.search);
+    const qText = params.get('q');
+    const usedData = await getUsedQuestions();
+    used = new Set(Object.keys(usedData));
+
+    if (qText) {
+      const decodedText = decodeURIComponent(qText);
+      const questionObj = questions.find(q => q.text === decodedText);
+      if (questionObj) {
+        currentQuestion = questionObj;
+        document.getElementById("category").innerText = `${questionObj.emoji} ${questionObj.category}`;
+        document.getElementById("question").innerText = questionObj.text;
+        document.getElementById("shareBtn").style.display = 'inline-block';
+        used.add(questionObj.text.replace(/\./g, '_'));
+        markQuestionUsed(questionObj.text);
         return;
       }
-      let q;
-      do {
-        q = questions[Math.floor(Math.random() * questions.length)];
-      } while (used.has(q));
-      used.add(q);
-      document.getElementById("card").innerText = q;
     }
-  </script>
+
+    // ถ้าไม่มี query หรือไม่เจอคำถามใน URL ให้สุ่มคำถามใหม่เลย
+    newCard();
+  };
+
+  // ปุ่มสุ่มคำถามใหม่
+  document.getElementById("newCardBtn").onclick = () => {
+    newCard();
+  };
+</script>
+
 </body>
 </html>
