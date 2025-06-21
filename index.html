@@ -1,182 +1,139 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Deep Talk Cards</title>
-<style>
-  body {
-    background: #000;
-    color: #eee;
-    font-family: Arial, sans-serif;
-    display: flex;
-    height: 100vh;
-    justify-content: center;
-    align-items: center;
-    margin: 0;
-    padding: 20px;
-    flex-direction: column;
-    text-align: center;
-  }
-  #category {
-    font-size: 24px;
-    margin-bottom: 10px;
-  }
-  #question {
-    font-size: 20px;
-    margin-bottom: 20px;
-    min-height: 80px;
-  }
-  button {
-    background: #222;
-    color: #eee;
-    border: 1px solid #555;
-    padding: 10px 20px;
-    font-size: 16px;
-    cursor: pointer;
-    border-radius: 6px;
-    margin: 5px;
-    user-select: none;
-  }
-  button:hover {
-    background: #444;
-  }
-</style>
-<!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Deep Talk Questions</title>
+  <style>
+    body {
+      background-color: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 2rem;
+    }
+    #question-text {
+      font-size: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    button {
+      background-color: #1a73e8;
+      color: white;
+      border: none;
+      padding: 0.8rem 1.5rem;
+      margin: 0 0.5rem;
+      font-size: 1rem;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #155ab6;
+    }
+  </style>
 </head>
 <body>
 
-<div id="category"></div>
-<div id="question">Loading questions...</div>
-<button id="newCardBtn">🎲 New Question</button>
-<button id="shareBtn" style="display:none;">🔗 Share this question</button>
+  <h1>Deep Talk Questions</h1>
 
-<script>
-  // --- Firebase config (เปลี่ยนเป็นของมึง) ---
-const firebaseConfig = {
-  apiKey: "AIzaSyB6JnclgIZfdSkhyCK-_sKKE6NR3auuVbs",
-  authDomain: "deeptalkapp-ab162.firebaseapp.com",
-  databaseURL: "https://deeptalkapp-ab162-default-rtdb.firebaseio.com",
-  projectId: "deeptalkapp-ab162",
-  storageBucket: "deeptalkapp-ab162.firebasestorage.app",
-  messagingSenderId: "17784725064",
-  appId: "1:17784725064:web:a4432c0adfe939b06d427d"
-};
+  <div id="question-container">
+    <p id="question-text">Loading questions...</p>
+    <button id="next-btn" disabled>Next Question</button>
+    <button id="reset-btn" style="display:none;">Play Again 🔄</button>
+  </div>
 
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-  // Initialize Firebase
-  firebase.initializeApp(firebaseConfig);
-  const database = firebase.database();
+  <script>
+    // Firebase config (ใส่ของมึงตรงนี้)
+    const firebaseConfig = {
+      apiKey: "AIzaSyB6JnclgIZfdSkhyCK-_sKKE6NR3auuVbs",
+      authDomain: "deeptalkapp-ab162.firebaseapp.com",
+      databaseURL: "https://deeptalkapp-ab162-default-rtdb.firebaseio.com",
+      projectId: "deeptalkapp-ab162",
+      storageBucket: "deeptalkapp-ab162.firebasestorage.app",
+      messagingSenderId: "17784725064",
+      appId: "1:17784725064:web:a4432c0adfe939b06d427d"
+    };
 
-  // --- คำถามพร้อมหมวดหมู่และ Emoji ---
-  const questions = [
-    {text: "What part of yourself are you most proud of?","category":"Yourself","emoji":"🧍"},
-    {text: "What scares you the most about your future?","category":"Future","emoji":"🔮"},
-    {text: "Have you ever felt betrayed by a friend? How did it affect you?","category":"Friend","emoji":"🤝"},
-    {text: "If you could change one thing about your past, what would it be?","category":"Yourself","emoji":"🧍"},
-    {text: "What’s a dream you have that you’ve never shared with anyone?","category":"Future","emoji":"🔮"},
-    {text: "How do you know when someone is truly your friend?","category":"Friend","emoji":"🤝"},
-    {text: "When do you feel most vulnerable?","category":"Yourself","emoji":"🧍"},
-    {text: "What do you hope your friends remember about you?","category":"Friend","emoji":"🤝"},
-    {text: "What’s one thing you want to accomplish in the next 5 years?","category":"Future","emoji":"🔮"},
-    {text: "How do you handle feelings of loneliness?","category":"Yourself","emoji":"🧍"},
-    {text: "What does friendship mean to you?","category":"Friend","emoji":"🤝"},
-    {text: "What are you most excited about in your future?","category":"Future","emoji":"🔮"},
-  ];
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
 
-  let used = new Set();
-  let currentQuestion = null;
+    // Elements
+    const questionText = document.getElementById('question-text');
+    const nextBtn = document.getElementById('next-btn');
+    const resetBtn = document.getElementById('reset-btn');
 
-  // ฟังก์ชันอ่านคำถามที่ใช้แล้วจาก Firebase
-  async function getUsedQuestions() {
-    const snapshot = await database.ref('usedQuestions').once('value');
-    return snapshot.val() || {};
-  }
+    let allQuestions = [];
+    let usedQuestions = {};
 
-  // ฟังก์ชันบันทึกคำถามที่ใช้ไปแล้วลง Firebase
-  function markQuestionUsed(questionText) {
-    const safeKey = questionText.replace(/\./g, '_');
-    database.ref('usedQuestions/' + safeKey).set(true);
-  }
-
-  // ฟังก์ชันสุ่มคำถามที่ยังไม่ถูกใช้
-  async function newCard() {
-    const usedData = await getUsedQuestions();
-    used = new Set(Object.keys(usedData));
-
-    const unusedQuestions = questions.filter(q => !used.has(q.text.replace(/\./g, '_')));
-    if (unusedQuestions.length === 0) {
-      document.getElementById("category").innerText = "";
-      document.getElementById("question").innerText = "No more questions!";
-      document.getElementById("shareBtn").style.display = 'none';
-      return;
+    // โหลดคำถามจาก Firebase
+    async function fetchQuestions() {
+      const snapshot = await database.ref('questions').once('value');
+      return snapshot.val() || [];
     }
-    const q = unusedQuestions[Math.floor(Math.random() * unusedQuestions.length)];
-    currentQuestion = q;
 
-    document.getElementById("category").innerText = `${q.emoji} ${q.category}`;
-    document.getElementById("question").innerText = q.text;
-
-    // บันทึกคำถามที่ใช้ใน Firebase
-    markQuestionUsed(q.text);
-    used.add(q.text.replace(/\./g, '_'));
-
-    // แก้ไข URL เพื่อแชร์คำถามนี้
-    const encoded = encodeURIComponent(q.text);
-    history.replaceState(null, '', '?q=' + encoded);
-
-    // แสดงปุ่มแชร์
-    document.getElementById("shareBtn").style.display = 'inline-block';
-  }
-
-  // ฟังก์ชันแชร์คำถาม
-  document.getElementById("shareBtn").onclick = () => {
-    const url = window.location.href;
-    if (navigator.share) {
-      navigator.share({
-        title: 'Deep Talk Question',
-        text: currentQuestion ? currentQuestion.text : '',
-        url: url,
-      }).catch(() => alert('Sharing failed or canceled.'));
-    } else {
-      navigator.clipboard.writeText(url).then(() => {
-        alert('Link copied to clipboard!');
-      });
+    // โหลดสถานะคำถามที่เคยใช้
+    async function loadUsedQuestions() {
+      const snapshot = await database.ref('usedQuestions').once('value');
+      return snapshot.val() || {};
     }
-  };
 
-  // ถ้าเปิดด้วย URL ที่มี ?q= ให้โชว์คำถามนั้น
-  window.onload = async () => {
-    const params = new URLSearchParams(window.location.search);
-    const qText = params.get('q');
-    const usedData = await getUsedQuestions();
-    used = new Set(Object.keys(usedData));
+    // อัปเดตสถานะคำถามที่ใช้
+    async function saveUsedQuestions() {
+      await database.ref('usedQuestions').set(usedQuestions);
+    }
 
-    if (qText) {
-      const decodedText = decodeURIComponent(qText);
-      const questionObj = questions.find(q => q.text === decodedText);
-      if (questionObj) {
-        currentQuestion = questionObj;
-        document.getElementById("category").innerText = `${questionObj.emoji} ${questionObj.category}`;
-        document.getElementById("question").innerText = questionObj.text;
-        document.getElementById("shareBtn").style.display = 'inline-block';
-        used.add(questionObj.text.replace(/\./g, '_'));
-        markQuestionUsed(questionObj.text);
-        return;
+    // ฟังก์ชันแสดงคำถามใหม่
+    async function loadNextQuestion() {
+      const availableQuestions = allQuestions.filter(q => !usedQuestions[q.id]);
+      if (availableQuestions.length === 0) {
+        questionText.textContent = "No more questions 😞";
+        nextBtn.style.display = "none";
+        resetBtn.style.display = "inline-block";
+      } else {
+        const randomIndex = Math.floor(Math.random() * availableQuestions.length);
+        const question = availableQuestions[randomIndex];
+        questionText.textContent = question.text;
+        usedQuestions[question.id] = true;
+        await saveUsedQuestions();
       }
     }
 
-    // ถ้าไม่มี query หรือไม่เจอคำถามใน URL ให้สุ่มคำถามใหม่เลย
-    newCard();
-  };
+    // รีเซ็ตสถานะคำถามทั้งหมด
+    async function resetGame() {
+      usedQuestions = {};
+      await saveUsedQuestions();
+      questionText.textContent = "Let's start again!";
+      nextBtn.style.display = "inline-block";
+      resetBtn.style.display = "none";
+    }
 
-  // ปุ่มสุ่มคำถามใหม่
-  document.getElementById("newCardBtn").onclick = () => {
-    newCard();
-  };
-</script>
+    // Event listeners
+    nextBtn.addEventListener('click', async () => {
+      await loadNextQuestion();
+    });
 
+    resetBtn.addEventListener('click', async () => {
+      await resetGame();
+    });
+
+    // เริ่มต้นโหลดข้อมูล
+    async function init() {
+      allQuestions = await fetchQuestions();
+      usedQuestions = await loadUsedQuestions();
+      if (allQuestions.length === 0) {
+        questionText.textContent = "No questions found in database.";
+        nextBtn.disabled = true;
+      } else {
+        questionText.textContent = "Ready? Click Next Question to start!";
+        nextBtn.disabled = false;
+      }
+    }
+
+    init();
+  </script>
 </body>
 </html>
