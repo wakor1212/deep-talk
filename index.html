@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -84,24 +85,37 @@
     let questions = [];
     let usedIndexes = new Set();
 
-    // ดึงข้อมูลคำถามจาก Firebase
+    function fetchUsedIndexes() {
+      return db.ref('usedIndexes').once('value').then(snapshot => {
+        const data = snapshot.val() || {};
+        return new Set(Object.keys(data).map(k => parseInt(k)));
+      });
+    }
+
+    function markIndexAsUsed(idx) {
+      db.ref('usedIndexes/' + idx).set(true);
+    }
+
     function fetchQuestions() {
-      db.ref('questions').once('value')
-        .then(snapshot => {
-          const data = snapshot.val();
-          if (!data) {
-            container.innerText = "No questions found in database.";
-            nextBtn.disabled = true;
-            return;
-          }
-          questions = Object.values(data);
-          nextBtn.disabled = false;
-          showNextQuestion();
-        })
-        .catch(error => {
-          container.innerText = "Error loading questions.";
-          console.error(error);
-        });
+      Promise.all([
+        db.ref('questions').once('value'),
+        fetchUsedIndexes()
+      ])
+      .then(([questionsSnap, usedIdx]) => {
+        const data = questionsSnap.val();
+        if (!data) {
+          container.innerText = "No questions found in database.";
+          return;
+        }
+        questions = Object.values(data);
+        usedIndexes = usedIdx;
+        nextBtn.disabled = false;
+        showNextQuestion();
+      })
+      .catch(err => {
+        console.error(err);
+        container.innerText = "Error loading questions.";
+      });
     }
 
     function showQuestion(question) {
@@ -120,11 +134,14 @@
         restartBtn.style.display = 'inline-block';
         return;
       }
+
       let idx;
       do {
         idx = Math.floor(Math.random() * questions.length);
       } while (usedIndexes.has(idx));
+
       usedIndexes.add(idx);
+      markIndexAsUsed(idx);
       showQuestion(questions[idx]);
     }
 
@@ -133,10 +150,12 @@
     });
 
     restartBtn.addEventListener('click', () => {
-      usedIndexes.clear();
-      nextBtn.style.display = 'inline-block';
-      restartBtn.style.display = 'none';
-      showNextQuestion();
+      db.ref('usedIndexes').remove().then(() => {
+        usedIndexes.clear();
+        nextBtn.style.display = 'inline-block';
+        restartBtn.style.display = 'none';
+        showNextQuestion();
+      });
     });
 
     fetchQuestions();
