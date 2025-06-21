@@ -1,89 +1,83 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Deep Talk Firebase</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deep Talk Cards</title>
   <style>
-    body { font-family: sans-serif; text-align: center; margin-top: 50px; }
-    .topic { font-weight: bold; font-size: 1.2rem; margin-bottom: 10px; color: #ff8800; }
-    .question { font-size: 1.1rem; font-style: italic; margin-bottom: 20px; }
-    button { padding: 10px 20px; font-size: 1rem; cursor: pointer; }
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 20px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 1.1rem;
+      border: none;
+      border-radius: 8px;
+      background-color: #ffffff10;
+      color: #fff;
+      cursor: pointer;
+      backdrop-filter: blur(5px);
+      box-shadow: 0 0 10px #ffffff33;
+      transition: all 0.2s ease;
+    }
+
+    button:hover {
+      background-color: #ffffff22;
+    }
+
+    #card {
+      margin-top: 30px;
+      font-size: 1.3rem;
+      max-width: 90%;
+    }
   </style>
 </head>
 <body>
+  <h1>🃏 Deep Talk Generator</h1>
+  <button onclick="newCard()">New Question</button>
+  <p id="card"></p>
 
-<h1>🎴 Deep Talk Firebase</h1>
-<div class="topic">Press button</div>
-<div class="question">to get a question...</div>
-<button id="btn">New Question</button>
+  <script>
+    const questions = [
+      "What part of yourself are you most proud of?",
+      "When was the last time you felt truly seen?",
+      "What’s something you’re still healing from?",
+      "If fear didn’t stop you, what would you try?",
+      "What kind of future are you scared of?",
+      "Do you feel closer to your friends or your dreams?",
+      "What memory still makes your heart ache?",
+      "Who do you miss being?"
+    ];
+    let used = new Set();
 
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-
-<script>
-const firebaseConfig = {
-  apiKey: "AIzaSyB6JnclgIZfdSkhyCK-_sKKE6NR3auuVbs",
-  authDomain: "deeptalkapp-ab162.firebaseapp.com",
-  projectId: "deeptalkapp-ab162",
-  storageBucket: "deeptalkapp-ab162.firebasestorage.app",
-  messagingSenderId: "17784725064",
-  appId: "1:17784725064:web:a4432c0adfe939b06d427d"
-};
-
-  // Initialize Firebase
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
-
-  // รายการคำถาม (แก้เติมได้ตามใจ)
-  const questions = [
-    {topic: "Yourself", question: "Have you ever felt like you're not good enough? What helped you keep going?"},
-    {topic: "Yourself", question: "Is there something you still can't forgive yourself for?"},
-    {topic: "Yourself", question: "If you could hug your younger sad self, what would you say?"},
-    {topic: "Friends", question: "Is there a friend you miss but don’t talk to anymore? Why?"},
-    {topic: "Friends", question: "Have you ever felt like you didn’t belong in your group of friends?"},
-    {topic: "Future", question: "What kind of future do you want but feel afraid to hope for?"},
-    {topic: "Future", question: "Do you feel like you’re truly living, or just surviving?"}
-  ];
-
-  const topicEl = document.querySelector('.topic');
-  const questionEl = document.querySelector('.question');
-  const btn = document.getElementById('btn');
-
-  btn.onclick = async () => {
-    // อ่านคำถามที่ใช้ไปแล้วจาก Firestore
-    const usedSnap = await db.collection('usedQuestions').get();
-    const usedIds = usedSnap.docs.map(doc => doc.id);
-
-    // หาคำถามที่ยังไม่ใช้
-    const unused = questions
-      .map((q,i) => ({...q, id: i}))
-      .filter(q => !usedIds.includes(q.id.toString()));
-
-    if (unused.length === 0) {
-      alert('หมดคำถามแล้ว! รีเซ็ตสถานะให้เริ่มใหม่');
-      // ลบคำถามที่ใช้ทั้งหมดใน Firestore
-      const batch = db.batch();
-      usedSnap.docs.forEach(doc => batch.delete(doc.ref));
-      await batch.commit();
-      topicEl.textContent = 'Reset done';
-      questionEl.textContent = 'Press again to start over.';
-      return;
+    function newCard() {
+      if (used.size === questions.length) {
+        document.getElementById("card").innerText = "No more cards!";
+        return;
+      }
+      let q;
+      do {
+        q = questions[Math.floor(Math.random() * questions.length)];
+      } while (used.has(q));
+      used.add(q);
+      document.getElementById("card").innerText = q;
     }
-
-    // เลือกคำถามแบบสุ่มจาก unused
-    const random = unused[Math.floor(Math.random() * unused.length)];
-
-    // แสดงคำถาม
-    topicEl.textContent = `[${random.topic}]`;
-    questionEl.textContent = random.question;
-
-    // บันทึกคำถามนี้ลง Firestore
-    await db.collection('usedQuestions').doc(random.id.toString()).set({
-      topic: random.topic,
-      question: random.question,
-      timestamp: Date.now()
-    });
-  };
-</script>
-
+  </script>
 </body>
 </html>
