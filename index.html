@@ -3,137 +3,143 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Deep Talk Questions</title>
+  <title>Deep Talk</title>
   <style>
     body {
       background-color: #000;
-      color: #fff;
+      color: #eee;
       font-family: Arial, sans-serif;
-      text-align: center;
-      padding: 2rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
     }
-    #question-text {
+    #container {
+      background: #111;
+      padding: 2rem;
+      border-radius: 12px;
+      width: 90vw;
+      max-width: 600px;
+      text-align: center;
+      box-shadow: 0 0 15px #333;
+    }
+    .question-card {
+      margin-top: 1rem;
+      padding: 1.5rem;
+      background: #222;
+      border-radius: 8px;
+      box-shadow: 0 0 8px #000;
+    }
+    .question-category {
       font-size: 1.5rem;
-      margin-bottom: 1.5rem;
+      margin-bottom: 0.5rem;
+      font-weight: bold;
+      color: #ffa;
     }
     button {
-      background-color: #1a73e8;
-      color: white;
-      border: none;
-      padding: 0.8rem 1.5rem;
-      margin: 0 0.5rem;
+      margin-top: 1rem;
+      padding: 0.7rem 1.5rem;
       font-size: 1rem;
-      border-radius: 5px;
+      border: none;
+      border-radius: 8px;
       cursor: pointer;
+      background: #ffa500;
+      color: #000;
+      font-weight: bold;
+      transition: background 0.3s;
     }
     button:hover {
-      background-color: #155ab6;
+      background: #ffcc33;
     }
   </style>
 </head>
 <body>
-
-  <h1>Deep Talk Questions</h1>
-
-  <div id="question-container">
-    <p id="question-text">Loading questions...</p>
+  <div id="container">
+    <h1>Deep Talk</h1>
+    <div id="question-area">Loading Questions...</div>
     <button id="next-btn" disabled>Next Question</button>
-    <button id="reset-btn" style="display:none;">Play Again 🔄</button>
+    <button id="restart-btn" style="display:none;">Play Again</button>
   </div>
 
-  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-
   <script>
-    // Firebase config (ใส่ของมึงตรงนี้)
     const firebaseConfig = {
       apiKey: "AIzaSyB6JnclgIZfdSkhyCK-_sKKE6NR3auuVbs",
       authDomain: "deeptalkapp-ab162.firebaseapp.com",
-      databaseURL: "https://deeptalkapp-ab162-default-rtdb.firebaseio.com",
       projectId: "deeptalkapp-ab162",
       storageBucket: "deeptalkapp-ab162.firebasestorage.app",
       messagingSenderId: "17784725064",
       appId: "1:17784725064:web:a4432c0adfe939b06d427d"
     };
 
-    // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
-    const database = firebase.database();
+    const db = firebase.database();
 
-    // Elements
-    const questionText = document.getElementById('question-text');
+    const container = document.getElementById('question-area');
     const nextBtn = document.getElementById('next-btn');
-    const resetBtn = document.getElementById('reset-btn');
+    const restartBtn = document.getElementById('restart-btn');
 
-    let allQuestions = [];
-    let usedQuestions = {};
+    let questions = [];
+    let usedIndexes = new Set();
 
-    // โหลดคำถามจาก Firebase
-    async function fetchQuestions() {
-      const snapshot = await database.ref('questions').once('value');
-      return snapshot.val() || [];
+    // ดึงข้อมูลคำถามจาก Firebase
+    function fetchQuestions() {
+      db.ref('questions').once('value')
+        .then(snapshot => {
+          const data = snapshot.val();
+          if (!data) {
+            container.innerText = "No questions found in database.";
+            nextBtn.disabled = true;
+            return;
+          }
+          questions = Object.values(data);
+          nextBtn.disabled = false;
+          showNextQuestion();
+        })
+        .catch(error => {
+          container.innerText = "Error loading questions.";
+          console.error(error);
+        });
     }
 
-    // โหลดสถานะคำถามที่เคยใช้
-    async function loadUsedQuestions() {
-      const snapshot = await database.ref('usedQuestions').once('value');
-      return snapshot.val() || {};
+    function showQuestion(question) {
+      container.innerHTML = `
+        <div class="question-card">
+          <div class="question-category">${question.emoji} ${question.category}</div>
+          <p>${question.text}</p>
+        </div>
+      `;
     }
 
-    // อัปเดตสถานะคำถามที่ใช้
-    async function saveUsedQuestions() {
-      await database.ref('usedQuestions').set(usedQuestions);
-    }
-
-    // ฟังก์ชันแสดงคำถามใหม่
-    async function loadNextQuestion() {
-      const availableQuestions = allQuestions.filter(q => !usedQuestions[q.id]);
-      if (availableQuestions.length === 0) {
-        questionText.textContent = "No more questions 😞";
-        nextBtn.style.display = "none";
-        resetBtn.style.display = "inline-block";
-      } else {
-        const randomIndex = Math.floor(Math.random() * availableQuestions.length);
-        const question = availableQuestions[randomIndex];
-        questionText.textContent = question.text;
-        usedQuestions[question.id] = true;
-        await saveUsedQuestions();
+    function showNextQuestion() {
+      if (usedIndexes.size === questions.length) {
+        container.innerHTML = `<p>🎉 No more questions! 🎉</p>`;
+        nextBtn.style.display = 'none';
+        restartBtn.style.display = 'inline-block';
+        return;
       }
+      let idx;
+      do {
+        idx = Math.floor(Math.random() * questions.length);
+      } while (usedIndexes.has(idx));
+      usedIndexes.add(idx);
+      showQuestion(questions[idx]);
     }
 
-    // รีเซ็ตสถานะคำถามทั้งหมด
-    async function resetGame() {
-      usedQuestions = {};
-      await saveUsedQuestions();
-      questionText.textContent = "Let's start again!";
-      nextBtn.style.display = "inline-block";
-      resetBtn.style.display = "none";
-    }
-
-    // Event listeners
-    nextBtn.addEventListener('click', async () => {
-      await loadNextQuestion();
+    nextBtn.addEventListener('click', () => {
+      showNextQuestion();
     });
 
-    resetBtn.addEventListener('click', async () => {
-      await resetGame();
+    restartBtn.addEventListener('click', () => {
+      usedIndexes.clear();
+      nextBtn.style.display = 'inline-block';
+      restartBtn.style.display = 'none';
+      showNextQuestion();
     });
 
-    // เริ่มต้นโหลดข้อมูล
-    async function init() {
-      allQuestions = await fetchQuestions();
-      usedQuestions = await loadUsedQuestions();
-      if (allQuestions.length === 0) {
-        questionText.textContent = "No questions found in database.";
-        nextBtn.disabled = true;
-      } else {
-        questionText.textContent = "Ready? Click Next Question to start!";
-        nextBtn.disabled = false;
-      }
-    }
-
-    init();
+    fetchQuestions();
   </script>
 </body>
 </html>
